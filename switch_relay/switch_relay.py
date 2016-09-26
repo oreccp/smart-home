@@ -38,23 +38,16 @@ def main():
     GPIO.setup(CONTROL_PIN, GPIO.OUT)  # set up pin 17
 
     try:
-        count = 0
+        toggle = False
         while True:
             pipe = [0]
             # Wait for incoming packet from transmitter
-            while not radio.available(pipe):
-                time.sleep(POLL_PERIOD)
-                count += 1
-                if count > ON_OFF_THRESHOLD:
-                    # Turn off
-                    GPIO.output(CONTROL_PIN, False)
-            recv_buffer = []
-            radio.read(recv_buffer, radio.getDynamicPayloadSize())
-            if recv_buffer[0] == 1:
-                count = 0
-                GPIO.output(CONTROL_PIN, True)
-            else:
-                print 'Unknown command'
+            if radio.available(pipe):
+                recv_buffer = []
+                radio.read(recv_buffer, radio.getDynamicPayloadSize())
+                if recv_buffer[0] == 1:
+                    toggle = not toggle
+                    GPIO.output(CONTROL_PIN, toggle)
 
     except KeyboardInterrupt:
         GPIO.cleanup()

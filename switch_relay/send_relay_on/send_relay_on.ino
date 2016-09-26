@@ -1,6 +1,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
+#include <NewPing.h>
 #include "RF24.h"
 #include "printf.h"
 
@@ -14,6 +15,13 @@ RF24 radio(7,8);
 // Radio pipe addresses for the 2 nodes to communicate.
 const uint64_t pipes[2] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL };
 const uint64_t pipe =  0xC2C2C2C2C2LL;
+
+/* Ultrasonic ranger */
+#define  TRIGGER_PIN  6
+#define  ECHO_PIN     5
+#define MAX_DISTANCE 500 // Maximum distance we want to ping for (in centimeters).
+// NewPing setup of pins and maximum distance.
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
 void setup()
 {
@@ -45,15 +53,31 @@ void setup()
   radio.printDetails();
 }
 
-void sendRadioByte(byte b)
+void sendRadioByte(byte b, int retries)
 {
-  if(!radio.write( &b, sizeof(byte) )){
+  while (!radio.write(&b, sizeof(byte)) && retries > 0){
     Serial.println(F("Write failed"));
+    retries--;
   }
+}
+
+int readSonar() {
+  int dist_cm = sonar.ping_cm();
+  Serial.print("Ping: ");
+  Serial.print(dist_cm); 
+  Serial.println(" cm");
+  return dist_cm;  
 }
 
 void loop()
 {
-  delay(10);
-  sendRadioByte(1);
+  delay(100);
+  int dist_cm = readSonar();
+  if (dist_cm > 0) {
+    Serial.println("Command sent");
+    // Send the toggle light command
+    sendRadioByte(1, 10);
+    // Make sure we can toggle at most once a second
+    delay(1000);
+  }
 }
