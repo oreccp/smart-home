@@ -23,6 +23,9 @@ const uint64_t pipe =  0xC2C2C2C2C2LL;
 // NewPing setup of pins and maximum distance.
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
+// Globals
+int num_counts_above_threshold = 0;
+
 void setup()
 {
   //Setup LCD
@@ -69,15 +72,28 @@ int readSonar() {
   return dist_cm;  
 }
 
-void loop()
-{
-  delay(100);
+void sendToggleCommand() {
+  Serial.println("Command sent");
+  // Send the toggle light command
+  sendRadioByte(1, 10);
+}
+
+void tick() {
   int dist_cm = readSonar();
   if (dist_cm > 0) {
-    Serial.println("Command sent");
-    // Send the toggle light command
-    sendRadioByte(1, 10);
+    num_counts_above_threshold++;
+  } else {
+    num_counts_above_threshold = 0;
+  }
+  if (num_counts_above_threshold > 10) {
+    sendToggleCommand();
+    num_counts_above_threshold = 0;
     // Make sure we can toggle at most once a second
     delay(1000);
   }
+}
+
+void loop() {
+  delay(100);
+  tick();
 }
