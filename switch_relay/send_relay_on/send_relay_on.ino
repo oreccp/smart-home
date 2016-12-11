@@ -19,12 +19,9 @@ const uint64_t pipe =  0xC2C2C2C2C2LL;
 /* Ultrasonic ranger */
 #define  TRIGGER_PIN  6
 #define  ECHO_PIN     5
-#define MAX_DISTANCE 500 // Maximum distance we want to ping for (in centimeters).
+#define MAX_DISTANCE 75 // Maximum distance we want to ping for (in centimeters).
 // NewPing setup of pins and maximum distance.
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
-
-// Globals
-int num_counts_above_threshold = 0;
 
 void setup()
 {
@@ -78,16 +75,39 @@ void sendToggleCommand() {
   sendRadioByte(1, 10);
 }
 
+// Moving average
+#define AVG_LEN (sizeof(avg) / sizeof(avg[0]))
+static int avg[10];
+static int index = 0;
+void addToAvg(int val, int maximum) {
+  avg[index] = val < maximum ? val : maximum;
+  index = (index + 1) % AVG_LEN;
+}
+void clearAvg() {
+  for (int i = 0; i < AVG_LEN; ++i) {
+    avg[i] = 0;
+  }
+  index = 0;
+}
+int average() {
+  double sum = 0;
+  for (int i = 0; i < AVG_LEN; ++i) {
+    sum += avg[i];
+  }
+  return sum / AVG_LEN;
+}
+bool isAboveVal(int threshold) {
+  Serial.print("Avg: ");
+  Serial.print(average()); 
+  return average() >= threshold;
+}
+
 void tick() {
   int dist_cm = readSonar();
-  if (dist_cm > 0) {
-    num_counts_above_threshold++;
-  } else {
-    num_counts_above_threshold = 0;
-  }
-  if (num_counts_above_threshold > 10) {
+  addToAvg(dist_cm, 25);
+  if(isAboveVal(10)) {
     sendToggleCommand();
-    num_counts_above_threshold = 0;
+    clearAvg();
     // Make sure we can toggle at most once a second
     delay(1000);
   }
